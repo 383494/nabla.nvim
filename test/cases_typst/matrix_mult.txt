@@ -1,0 +1,4 @@
+A B = mat(a, b; c, d) mat(e, f; g, h)
+---
+     ⎛a b⎞⎛e f⎞
+AB = ⎝c d⎠⎝g h⎠

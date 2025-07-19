@@ -1,0 +1,3 @@
+abs(a + b) <= abs(a) + abs(b)
+---
+│a + b│ ≤ │a│ + │b│

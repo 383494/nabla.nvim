@@ -1,0 +1,4 @@
+underbrace(1 + 2 + cdots + n)
+---
+1 + 2 +  ⋯  + n
+⏟              

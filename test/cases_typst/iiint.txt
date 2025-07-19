@@ -1,0 +1,3 @@
+integral.triple f(x, y, z) dif x dif y dif z
+---
+∭ f(x,y,z)dxdydz

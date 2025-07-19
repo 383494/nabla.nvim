@@ -19,36 +19,44 @@ local MATH_NODES = {
 RENDER_CACHE = {}
 
 utils.in_mathzone = function()
+    if not has_treesitter then return false end
+
+    local buf = vim.api.nvim_get_current_buf()
+    local ft = vim.bo[buf].filetype
+    local lang
+    if ft == "typst" then
+        lang = "typst"
+    elseif ft == "markdown" then
+        lang = "markdown"
+    else
+        lang = "latex"
+    end
+
     local function get_node_at_cursor()
         local cursor = vim.api.nvim_win_get_cursor(0)
         local cursor_range = { cursor[1] - 1, cursor[2] }
-        local buf = vim.api.nvim_get_current_buf()
-        local ok, parser = pcall(ts.get_parser, buf, "latex")
+        local ok, parser = pcall(ts.get_parser, buf, lang)
         if not ok or not parser then
-          vim.api.nvim_echo({{"Latex parser not found. Please install with nvim-treesitter using \":TSInstall latex\".", "ErrorMsg"}}, true, {})
-
-            vim.api.nvim_echo({{"Latex parser not found. Please install with nvim-treesitter using \":TSInstall latex\".", "ErrorMsg"}}, true, {})
+            local name = lang == "typst" and "Typst" or "Latex"
+            vim.api.nvim_echo({{name .. " parser not found. Please install with nvim-treesitter using \":TSInstall " .. lang .. "\".", "ErrorMsg"}}, true, {})
             return
         end
         local root_tree = parser:parse()[1]
         local root = root_tree and root_tree:root()
-
-        if not root then
-            return
-        end
-
+        if not root then return end
         return root:named_descendant_for_range(
-            cursor_range[1],
-            cursor_range[2],
-            cursor_range[1],
-            cursor_range[2]
+            cursor_range[1], cursor_range[2],
+            cursor_range[1], cursor_range[2]
         )
     end
 
-    if has_treesitter then
-        local buf = vim.api.nvim_get_current_buf()
-        local node = get_node_at_cursor()
-        while node do
+    local node = get_node_at_cursor()
+    while node do
+        if ft == "typst" then
+            if node:type() == "math" then
+                return node
+            end
+        else
             if node:type()=="text" and node:parent():type()=="math_environment" then
                 return node
             end
@@ -58,31 +66,39 @@ utils.in_mathzone = function()
             if node:type() == "environment" then
                 local begin = node:child(0)
                 local names = begin and begin:field("name")
-
                 if
                     names
                     and names[1]
                     and MATH_ENVIRONMENTS[query.get_node_text(names[1], buf):gsub(
-                        "[%s*]",
-                        ""
+                        "[%s*]", ""
                     )]
                 then
                     return node
                 end
             end
-            node = node:parent()
         end
-        return false
+        node = node:parent()
     end
+    return false
 end
 
 utils.get_all_mathzones = function(opts)
   opts = opts or {}
   local buf = vim.api.nvim_get_current_buf()
-  local ok, parser = pcall(ts.get_parser, buf, vim.bo.filetype~="markdown" and "latex" or "markdown")
-  if not ok or not parser then
-    vim.api.nvim_echo({{"Latex parser not found. Please install with nvim-treesitter using \":TSInstall latex\".", "ErrorMsg"}}, true, {})
+  local ft = vim.bo[buf].filetype
+  local lang
+  if ft == "typst" then
+    lang = "typst"
+  elseif ft == "markdown" then
+    lang = "markdown"
+  else
+    lang = "latex"
+  end
 
+  local ok, parser = pcall(ts.get_parser, buf, lang)
+  if not ok or not parser then
+    local name = lang == "typst" and "Typst" or "Latex"
+    vim.api.nvim_echo({{name .. " parser not found. Please install with nvim-treesitter using \":TSInstall " .. lang .. "\".", "ErrorMsg"}}, true, {})
     return {}
   end
 
@@ -120,7 +136,7 @@ utils.get_all_mathzones = function(opts)
   end
 
   local out = {}
-  if vim.bo.filetype == "markdown" then
+  if ft == "markdown" then
     local injections = {}
 
     parser:for_each_tree(function(_, parent_ltree)
@@ -130,8 +146,8 @@ utils.get_all_mathzones = function(opts)
           local sr, sc, er, ec = ts.get_node_range(r)
           local key = string.format("%s,%s,%s,%s", sr, sc, er, ec)
           if not injections[key] then
-            local lang = child:lang()
-            if lang == "latex" then
+            local clang = child:lang()
+            if clang == "latex" then
               injections[key] = true
               table.insert(out, r)
             end
@@ -151,6 +167,8 @@ utils.get_mathzones_in_node = function(parent, out)
     if node:type()=="text" and node:parent():type()=="math_environment" then
       table.insert(out, node)
     elseif MATH_NODES[node:type()] then
+      table.insert(out, node)
+    elseif node:type() == "math" then
       table.insert(out, node)
     elseif node:type() == "environment" then
       local begin = node:child(0)

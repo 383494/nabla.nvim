@@ -1,0 +1,3 @@
+x in A subset B
+---
+x ∈ A ⊂ B

@@ -1,0 +1,5 @@
+det(A) = product_(i=1)^n lambda_i
+---
+             n      
+\det(A) =    ∏    λᵢ
+          (i = 1)   

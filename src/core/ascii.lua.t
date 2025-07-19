@@ -479,7 +479,7 @@ elseif exp.kind == "funexp" then
 	@otherwise_just_print_out_function_as_text
 
 @transform_function_into_ascii+=
-if name == "frac" then
+if (name == "frac" or name == "dfrac" or name == "cfrac") then
 	@build_ascii_fraction
 
 @build_ascii_fraction+=
@@ -554,7 +554,7 @@ g = g:combine_sub(subgrid)
 @if_numerical_fraction_put_smaller_form+=
 if #frac_exps == 1  then
 	local exp = frac_exps[1]
-	if exp.kind == "funexp" and exp.sym == "frac" then
+	if exp.kind == "funexp" and (exp.sym == "frac" or exp.sym == "dfrac" or exp.sym == "cfrac") then
 		assert(#exp.args == 2, "frac must have 2 arguments")
 		local numerator = exp.args[1].exps
 		local denominator = exp.args[2].exps

@@ -1,0 +1,3 @@
+x in A union B
+---
+x ∈ AunionB

@@ -1,0 +1,5 @@
+integral_0^1 x^2 dif x
+---
+1     
+∫ x²dx
+0     

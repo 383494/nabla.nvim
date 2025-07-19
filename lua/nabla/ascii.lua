@@ -112,6 +112,9 @@ local special_syms = {
 	["doteq"] = "≐",
 	["leq"] = "≤",
 	["cong"] = "≅",
+	["prec"] = "≺",
+	["succ"] = "≻",
+	["coloneq"] = "≔",
 
 		["pm"] = "±",
 		["mp"] = "∓",
@@ -123,7 +126,19 @@ local special_syms = {
 	["ast"] = "∗",
 
 	["partial"] = "∂",
+	["dif"] = "d",
 
+	["notin"] = "∉",
+	["approx"] = "≈",
+	["equiv"] = "≡",
+	["sim"] = "∼",
+	["simeq"] = "≃",
+	["lhd"] = "⊲",
+	["rhd"] = "⊳",
+	["preceq"] = "⪯",
+	["succeq"] = "⪰",
+	["uparrow"] = "↑",
+	["downarrow"] = "↓",
 	["otimes"] = "⊗",
 	["oplus"] = "⊕",
 	["times"] = "⨯",
@@ -1071,6 +1086,21 @@ local mathcal = {
   ["Z"] = "𝒵",
 }
 
+local mathfrak = {
+  ["A"] = "𝔄", ["B"] = "𝔅", ["C"] = "ℭ", ["D"] = "𝔇", ["E"] = "𝔈",
+  ["F"] = "𝔉", ["G"] = "𝔊", ["H"] = "ℌ", ["I"] = "ℑ", ["J"] = "𝔍",
+  ["K"] = "𝔎", ["L"] = "𝔏", ["M"] = "𝔐", ["N"] = "𝔑", ["O"] = "𝔒",
+  ["P"] = "𝔓", ["Q"] = "𝔔", ["R"] = "ℜ", ["S"] = "𝔖", ["T"] = "𝔗",
+  ["U"] = "𝔘", ["V"] = "𝔙", ["W"] = "𝔚", ["X"] = "𝔛", ["Y"] = "𝔜",
+  ["Z"] = "ℨ",
+  ["a"] = "𝔞", ["b"] = "𝔟", ["c"] = "𝔠", ["d"] = "𝔡", ["e"] = "𝔢",
+  ["f"] = "𝔣", ["g"] = "𝔤", ["h"] = "𝔥", ["i"] = "𝔦", ["j"] = "𝔧",
+  ["k"] = "𝔨", ["l"] = "𝔩", ["m"] = "𝔪", ["n"] = "𝔫", ["o"] = "𝔬",
+  ["p"] = "𝔭", ["q"] = "𝔮", ["r"] = "𝔯", ["s"] = "𝔰", ["t"] = "𝔱",
+  ["u"] = "𝔲", ["v"] = "𝔳", ["w"] = "𝔴", ["x"] = "𝔵", ["y"] = "𝔶",
+  ["z"] = "𝔷",
+}
+
 local plain_functions = {
 	["min"] = true,
 	["lim"] = true,
@@ -1306,7 +1336,7 @@ function put_subsup_aside(g, sub, sup)
   		if exp.kind == "numexp" and math.floor(exp.num) == exp.num then
   			local num = exp.num
   			if num == 0 then
-  				superscript = superscript .. sub_letters["0"]
+  				superscript = superscript .. sup_letters["0"]
   			else
   				if num < 0 then
   					superscript = "₋" .. superscript
@@ -1473,7 +1503,7 @@ function put_if_only_sup(g, sub, sup)
   		if exp.kind == "numexp" and math.floor(exp.num) == exp.num then
   			local num = exp.num
   			if num == 0 then
-  				superscript = superscript .. sub_letters["0"]
+  				superscript = superscript .. sup_letters["0"]
   			else
   				if num < 0 then
   					superscript = "₋" .. superscript
@@ -1611,6 +1641,11 @@ function to_ascii(explist, exp_i)
     	    t = "sym"
     	  	if not string.match(sym, "^%a") and not string.match(sym, "^%d")  and not string.match(sym, "^%s+$") and sym ~= "/" and sym ~= special_syms["partial"] and sym ~= "[" and sym ~= "]" and sym ~= "'" and sym ~= "|" and sym ~= "." and sym ~= "," and not (exp_i == 1 and sym == "-") and sym ~= special_syms["Vert"] then
     	  		sym = " " .. sym .. " "
+    	  	elseif #sym > 1 and string.match(sym, "^%a+$") then
+    	  		local next_exp = explist[exp_i+1]
+    	  		if not (next_exp and (next_exp.kind == "parexp" or next_exp.kind == "braexp")) then
+    	  			sym = sym .. " "
+    	  		end
     	  	end
 
     	  elseif special_nums[name] then
@@ -1821,12 +1856,16 @@ function to_ascii(explist, exp_i)
 
     		exp_i = exp_i + 1
     	elseif name == "boldsymbol" then
-    	  local sym = unpack_explist(explist[exp_i+1])
     		g = to_ascii({explist[exp_i+1]}, 1)
     		exp_i = exp_i + 1
 
     	elseif plain_functions[name] then
-    		g = grid:new(#name, 1, {name})
+    		local next_exp = explist[exp_i+1]
+    		if next_exp and (next_exp.kind == "parexp" or next_exp.kind == "braexp") then
+    			g = grid:new(#name, 1, {name})
+    		else
+    			g = grid:new(#name + 1, 1, {name .. " "})
+    		end
     	elseif name == "overline" then
     	  local belowgrid = to_ascii({explist[exp_i+1]}, 1)
     	  exp_i = exp_i + 1
@@ -1852,6 +1891,334 @@ function to_ascii(explist, exp_i)
 
     	  local arrow = grid:new(w, 1, {txt})
     	  g = arrow:join_vert(belowgrid)
+    	  g.my = belowgrid.my + 1
+    	elseif name == "tilde" then
+    	  local belowgrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local tilde = grid:new(1, 1, { "~" })
+    	  g = tilde:join_vert(belowgrid)
+    	  g.my = belowgrid.my + 1
+    	elseif name == "grave" then
+    	  local belowgrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local accent = grid:new(1, 1, { "`" })
+    	  g = accent:join_vert(belowgrid)
+    	  g.my = belowgrid.my + 1
+    	elseif name == "acute" then
+    	  local belowgrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local accent = grid:new(1, 1, { "´" })
+    	  g = accent:join_vert(belowgrid)
+    	  g.my = belowgrid.my + 1
+    	elseif name == "breve" then
+    	  local belowgrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local accent = grid:new(1, 1, { "˘" })
+    	  g = accent:join_vert(belowgrid)
+    	  g.my = belowgrid.my + 1
+    	elseif name == "dash" then
+    	  local belowgrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local bar = ""
+    	  local w = belowgrid.w
+    	  for x=1,w do
+    	  	bar = bar .. style.div_middle_bar
+    	  end
+    	  local dash_grid = grid:new(w, 1, { bar })
+    	  g = dash_grid:join_vert(belowgrid)
+    	  g.my = belowgrid.my + 1
+    	elseif name == "cancel" or name == "strike" then
+    	  local ingrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local mid = ingrid.my + 1
+    	  if mid >= 1 and mid <= ingrid.h then
+    	    local line = ""
+    	    for x=1,ingrid.w do
+    	      line = line .. "─"
+    	    end
+    	    ingrid.content[mid] = line
+    	  end
+    	  g = ingrid
+    	elseif name == "ul" then
+    	  local ingrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local bar = ""
+    	  for x=1,ingrid.w do
+    	    bar = bar .. style.div_low_bar
+    	  end
+    	  local underline = grid:new(ingrid.w, 1, { bar })
+    	  g = ingrid:join_vert(underline)
+    	elseif name == "lfloor" then
+    	  local ingrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local left_c, right_c = {}, {}
+    	  for y=1,ingrid.h do
+    	    if y == ingrid.h then
+    	      table.insert(left_c, "⌊")
+    	      table.insert(right_c, "⌋")
+    	    else
+    	      table.insert(left_c, " ")
+    	      table.insert(right_c, " ")
+    	    end
+    	  end
+    	  local lb = grid:new(1, ingrid.h, left_c)
+    	  local rb = grid:new(1, ingrid.h, right_c)
+    	  g = lb:join_hori(ingrid, true):join_hori(rb, true)
+    	elseif name == "lceil" then
+    	  local ingrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local left_c, right_c = {}, {}
+    	  for y=1,ingrid.h do
+    	    if y == 1 then
+    	      table.insert(left_c, "⌈")
+    	      table.insert(right_c, "⌉")
+    	    else
+    	      table.insert(left_c, " ")
+    	      table.insert(right_c, " ")
+    	    end
+    	  end
+    	  local lb = grid:new(1, ingrid.h, left_c)
+    	  local rb = grid:new(1, ingrid.h, right_c)
+    	  g = lb:join_hori(ingrid, true):join_hori(rb, true)
+    	elseif name == "round" then
+    	  local ingrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local left_c, right_c = {}, {}
+    	  for y=1,ingrid.h do
+    	    if y == ingrid.h then
+    	      table.insert(left_c, "⌊")
+    	      table.insert(right_c, "⌉")
+    	    else
+    	      table.insert(left_c, " ")
+    	      table.insert(right_c, " ")
+    	    end
+    	  end
+    	  local lb = grid:new(1, ingrid.h, left_c)
+    	  local rb = grid:new(1, ingrid.h, right_c)
+    	  g = lb:join_hori(ingrid, true):join_hori(rb, true)
+    	elseif name == "Vert" then
+    	  local ingrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local bars = {}
+    	  for y=1,ingrid.h do
+    	    table.insert(bars, "‖")
+    	  end
+    	  local lb = grid:new(1, ingrid.h, bars)
+    	  local rb = grid:new(1, ingrid.h, bars)
+    	  g = lb:join_hori(ingrid, true):join_hori(rb, true)
+    	elseif name == "root" then
+    	  -- root(degree, radicand): two explists; root(radicand): one explist
+    	  local arg1 = explist[exp_i+1]
+    	  local arg2 = explist[exp_i+2]
+    	  local degree_exp, radicand_exps
+    	  if arg2 and arg2.kind == "explist" then
+    	    degree_exp = arg1
+    	    radicand_exps = arg2.exps
+    	    exp_i = exp_i + 2
+    	  else
+    	    radicand_exps = arg1.exps or {arg1}
+    	    exp_i = exp_i + 1
+    	  end
+    	  local toroot = to_ascii(radicand_exps, 1)
+    	  local left_content = {}
+    	  for y=1,toroot.h do
+    	    if y < toroot.h then
+    	      table.insert(left_content, " " .. style.root_vert_bar)
+    	    else
+    	      table.insert(left_content, style.root_bottom .. style.root_vert_bar)
+    	    end
+    	  end
+    	  local left_root = grid:new(2, toroot.h, left_content, "sym")
+    	  left_root.my = toroot.my
+    	  local up_str = " " .. style.root_upper_left
+    	  for x=1,toroot.w do
+    	    up_str = up_str .. style.root_upper
+    	  end
+    	  up_str = up_str .. style.root_upper_right
+    	  local top_root = grid:new(toroot.w+2, 1, { up_str }, "sym")
+    	  local res = left_root:join_hori(toroot)
+    	  res = top_root:join_vert(res)
+    	  res.my = top_root.h + toroot.my
+    	  if degree_exp then
+    	    local dg = to_ascii({degree_exp}, 1)
+    	    local pad = {}
+    	    for y=1, dg.h do
+    	      table.insert(pad, dg.content[y])
+    	    end
+    	    for y=1, res.h - dg.h do
+    	      table.insert(pad, string.rep(" ", dg.w))
+    	    end
+    	    local deg_col = grid:new(dg.w, res.h, pad)
+    	    deg_col.my = res.my
+    	    g = deg_col:join_hori(res)
+    	  else
+    	    g = res
+    	  end
+    	elseif name == "mathit" or name == "mathtt" then
+    	  g = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	elseif name == "mathfrak" then
+    	  local sym = unpack_explist(explist[exp_i+1])
+    	  exp_i = exp_i + 1
+    	  if sym.kind == "symexp" then
+    	    local s = sym.sym
+    	    local cell = ""
+    	    for i=1,#s do
+    	      local c = mathfrak[s:sub(i,i)]
+    	      if c then
+    	        cell = cell .. c
+    	      else
+    	        cell = cell .. s:sub(i,i)
+    	      end
+    	    end
+    	    g = grid:new(#s, 1, {cell})
+    	  else
+    	    g = to_ascii({explist[exp_i]}, 1)
+    	  end
+    	elseif name == "overbrace" then
+    	  local belowgrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local brace_str = "⏞"
+    	  for x=2,belowgrid.w do
+    	    brace_str = brace_str .. " "
+    	  end
+    	  local brace = grid:new(belowgrid.w, 1, { brace_str })
+    	  g = brace:join_vert(belowgrid)
+    	  g.my = belowgrid.my + 1
+    	elseif name == "underbrace" then
+    	  local abovegrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local brace_str = "⏟"
+    	  for x=2,abovegrid.w do
+    	    brace_str = brace_str .. " "
+    	  end
+    	  local brace = grid:new(abovegrid.w, 1, { brace_str })
+    	  g = abovegrid:join_vert(brace)
+    	elseif name == "underbracket" then
+    	  local abovegrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local w = abovegrid.w
+    	  local left_c, right_c = {}, {}
+    	  for y=1,abovegrid.h do
+    	    if y == abovegrid.h then
+    	      table.insert(left_c, "⎣")
+    	      table.insert(right_c, "⎦")
+    	    else
+    	      table.insert(left_c, " ")
+    	      table.insert(right_c, " ")
+    	    end
+    	  end
+    	  local lb = grid:new(1, abovegrid.h, left_c)
+    	  local rb = grid:new(1, abovegrid.h, right_c)
+    	  local spacer = grid:new(w, 1, { string.rep(" ", w) })
+    	  g = abovegrid:join_vert(lb:join_hori(spacer, true):join_hori(rb, true))
+    	elseif name == "overbracket" then
+    	  local belowgrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local w = belowgrid.w
+    	  local left_c, right_c = {}, {}
+    	  for y=1,belowgrid.h do
+    	    if y == 1 then
+    	      table.insert(left_c, "⎡")
+    	      table.insert(right_c, "⎤")
+    	    else
+    	      table.insert(left_c, " ")
+    	      table.insert(right_c, " ")
+    	    end
+    	  end
+    	  local lb = grid:new(1, belowgrid.h, left_c)
+    	  local rb = grid:new(1, belowgrid.h, right_c)
+    	  local spacer = grid:new(w, 1, { string.rep(" ", w) })
+    	  g = lb:join_hori(spacer, true):join_hori(rb, true):join_vert(belowgrid)
+    	elseif name == "underparen" then
+    	  local abovegrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local w = abovegrid.w
+    	  local left_c, right_c = {}, {}
+    	  for y=1,abovegrid.h do
+    	    if y == abovegrid.h then
+    	      table.insert(left_c, "⎝")
+    	      table.insert(right_c, "⎠")
+    	    else
+    	      table.insert(left_c, " ")
+    	      table.insert(right_c, " ")
+    	    end
+    	  end
+    	  local lb = grid:new(1, abovegrid.h, left_c)
+    	  local rb = grid:new(1, abovegrid.h, right_c)
+    	  local spacer = grid:new(w, 1, { string.rep(" ", w) })
+    	  g = abovegrid:join_vert(lb:join_hori(spacer, true):join_hori(rb, true))
+    	elseif name == "overparen" then
+    	  local belowgrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local w = belowgrid.w
+    	  local left_c, right_c = {}, {}
+    	  for y=1,belowgrid.h do
+    	    if y == 1 then
+    	      table.insert(left_c, "⎛")
+    	      table.insert(right_c, "⎞")
+    	    else
+    	      table.insert(left_c, " ")
+    	      table.insert(right_c, " ")
+    	    end
+    	  end
+    	  local lb = grid:new(1, belowgrid.h, left_c)
+    	  local rb = grid:new(1, belowgrid.h, right_c)
+    	  local spacer = grid:new(w, 1, { string.rep(" ", w) })
+    	  g = lb:join_hori(spacer, true):join_hori(rb, true):join_vert(belowgrid)
+    	elseif name == "undershell" then
+    	  local abovegrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local w = abovegrid.w
+    	  local left_c, right_c = {}, {}
+    	  for y=1,abovegrid.h do
+    	    if y == abovegrid.h then
+    	      table.insert(left_c, "⎣")
+    	      table.insert(right_c, "⎦")
+    	    else
+    	      table.insert(left_c, " ")
+    	      table.insert(right_c, " ")
+    	    end
+    	  end
+    	  local lb = grid:new(1, abovegrid.h, left_c)
+    	  local rb = grid:new(1, abovegrid.h, right_c)
+    	  local spacer = grid:new(w, 1, { string.rep(" ", w) })
+    	  g = abovegrid:join_vert(lb:join_hori(spacer, true):join_hori(rb, true))
+    	elseif name == "overshell" then
+    	  local belowgrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local w = belowgrid.w
+    	  local left_c, right_c = {}, {}
+    	  for y=1,belowgrid.h do
+    	    if y == 1 then
+    	      table.insert(left_c, "⎡")
+    	      table.insert(right_c, "⎤")
+    	    else
+    	      table.insert(left_c, " ")
+    	      table.insert(right_c, " ")
+    	    end
+    	  end
+    	  local lb = grid:new(1, belowgrid.h, left_c)
+    	  local rb = grid:new(1, belowgrid.h, right_c)
+    	  local spacer = grid:new(w, 1, { string.rep(" ", w) })
+    	  g = lb:join_hori(spacer, true):join_hori(rb, true):join_vert(belowgrid)
+    	elseif name == "mid" then
+    	  g = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	elseif name == "upright" or name == "sans" or name == "scr" then
+    	  g = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	elseif name == "circle" then
+    	  local belowgrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local accent = grid:new(1, 1, { "∘" })
+    	  g = accent:join_vert(belowgrid)
+    	  g.my = belowgrid.my + 1
+    	elseif name == "caron" then
+    	  local belowgrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local accent = grid:new(1, 1, { "ˇ" })
+    	  g = accent:join_vert(belowgrid)
     	  g.my = belowgrid.my + 1
 
       elseif name == "{" then
@@ -1907,6 +2274,18 @@ function to_ascii(explist, exp_i)
         res.my = math.floor(res.h/2)
         g = res
 
+      elseif name == "cases" then
+        local cellsgrid, maxheight = grid_of_exps(exp.content.exps)
+        local res = combine_matrix_grid(cellsgrid, maxheight)
+        res = res:enclose_bracket()
+        res.my = math.floor(res.h/2)
+        g = res
+      elseif name == "binom" or name == "vec" then
+        local cellsgrid, maxheight = grid_of_exps(exp.content.exps)
+        local res = combine_matrix_grid(cellsgrid, maxheight)
+        res = res:enclose_paren()
+        res.my = math.floor(res.h/2)
+        g = res
       else
         error("Unknown block expression " .. name)
       end

@@ -1,0 +1,3 @@
+integral.double f(x, y) dif x dif y
+---
+∬ f(x,y)dxdy

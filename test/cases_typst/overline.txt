@@ -1,0 +1,4 @@
+overline(x)
+---
+_
+x

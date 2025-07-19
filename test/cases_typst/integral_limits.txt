@@ -1,0 +1,5 @@
+integral_0^infinity e^(-x) dif x
+---
+∞  (-x)  
+∫ e    dx
+0        

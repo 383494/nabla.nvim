@@ -1,0 +1,3 @@
+a times b div c
+---
+a ⨯ b ÷ c

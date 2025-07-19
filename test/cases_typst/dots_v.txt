@@ -1,0 +1,5 @@
+mat(a_11, vdots; a_n1, ddots)
+---
+⎛a₁₁  ⋮ ⎞
+⎜a    ⋱ ⎟
+⎝ n1    ⎠

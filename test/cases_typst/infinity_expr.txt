@@ -1,0 +1,4 @@
+lim_(n -> infinity)
+---
+  lim   
+(n → ∞) 

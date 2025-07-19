@@ -232,33 +232,75 @@ local function gen_drawing(lines)
   return 0
 end
 
+local function gen_drawing_typst(text)
+  local typst = require("nabla.typst")
+  local ascii = require("nabla.ascii")
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, {"$" .. text .. "$"})
+  vim.bo[buf].filetype = "typst"
+  local ok, ts_parser = pcall(vim.treesitter.get_parser, buf, "typst")
+  if not ok or not ts_parser then
+    vim.api.nvim_buf_delete(buf, {force = true})
+    return 0
+  end
+  local tree = ts_parser:parse()[1]
+  local root = tree:root()
+  local math_node = nil
+  for child in root:iter_children() do
+    if child:type() == "math" then
+      math_node = child
+      break
+    end
+  end
+  if not math_node then
+    vim.api.nvim_buf_delete(buf, {force = true})
+    return 0
+  end
+  local exp = typst.parse_math_node(math_node, buf)
+  vim.api.nvim_buf_delete(buf, {force = true})
+  if exp then
+    local succ, g = pcall(ascii.to_ascii, {exp}, 1)
+    if not succ then print(g); return 0 end
+    if not g or g == "" then return 0 end
+    local drawing = {}
+    for row in vim.gsplit(tostring(g), "\n") do
+      table.insert(drawing, row)
+    end
+    return drawing
+  end
+  return 0
+end
+
 local function popup(overrides)
   if not utils.in_mathzone() then
     return
   end
 
   local math_node = utils.in_mathzone()
+  local buf = vim.api.nvim_get_current_buf()
+  local ft = vim.bo[buf].filetype
 
-  local srow, scol, erow, ecol = ts_utils.get_node_range(math_node)
-
-  local lines = vim.api.nvim_buf_get_text(0, srow, scol, erow, ecol, {})
-  line = table.concat(lines, " ")
-  line = line:gsub("%$", "")
-  line = line:gsub("\\%[", "")
-  line = line:gsub("\\%]", "")
-  line = line:gsub("^\\%(", "")
-  line = line:gsub("\\%)$", "")
-  line = vim.trim(line)
-  if line == "" then
-      return
+  local exp
+  if ft == "typst" then
+    local typst = require("nabla.typst")
+    exp = typst.parse_math_node(math_node, buf)
+  else
+    local srow, scol, erow, ecol = ts_utils.get_node_range(math_node)
+    local lines = vim.api.nvim_buf_get_text(0, srow, scol, erow, ecol, {})
+    local line = table.concat(lines, " ")
+    line = line:gsub("%$", "")
+    line = line:gsub("\\%[", "")
+    line = line:gsub("\\%]", "")
+    line = line:gsub("^\\%(", "")
+    line = line:gsub("\\%)$", "")
+    line = vim.trim(line)
+    if line == "" then return end
+    local success, result = pcall(parser.parse_all, line)
+    if not success then print(result); return end
+    exp = result
   end
 
-
-
-  local success, exp = pcall(parser.parse_all, line)
-
-
-  if success and exp then
+  if exp then
     local succ, g = pcall(ascii.to_ascii, {exp}, 1)
     if not succ then
       print(g)
@@ -266,7 +308,7 @@ local function popup(overrides)
     end
 
     if not g or g == "" then
-      vim.api.nvim_echo({{"Empty expression detected. Please use the $...$ syntax.", "ErrorMsg"}}, false, {})
+      vim.api.nvim_echo({{"Empty expression detected.", "ErrorMsg"}}, false, {})
       return 0
     end
 
@@ -280,9 +322,6 @@ local function popup(overrides)
     	end
     end
 
-
-
-
     local floating_default_options = {
       wrap = false,
       focusable = false,
@@ -292,10 +331,6 @@ local function popup(overrides)
     local bufnr_float, winr_float = vim.lsp.util.open_floating_preview(drawing, 'markdown', vim.tbl_deep_extend('force', floating_default_options, overrides or {}))
     local ns_id = vim.api.nvim_create_namespace("")
     colorize(g, 0, 0, 0, ns_id, drawing, 0, 0, bufnr_float)
-
-
-  else
-    print(exp)
   end
 
 end
@@ -303,52 +338,56 @@ end
 function enable_virt(opts)
   local buf = vim.api.nvim_get_current_buf()
   virt_enabled[buf] = true
+	local ft = vim.bo[buf].filetype
+ 	local inline_virt = {}
+ 	local virt_lines_above = {}
+ 	local virt_lines_below = {}
+ 	if mult_virt_ns[buf] == nil then
+ 			mult_virt_ns[buf] = vim.api.nvim_create_namespace("nabla.nvim")
+ 	end
+ 	local prev_row = -1
+ 	local prev_diff = 0
+ 	local next_prev_row
+ 	local next_prev_diff
+ 	local formula_nodes = utils.get_all_mathzones(opts)
+ 	local formulas_loc = {}
+ 	for _, node in ipairs(formula_nodes) do
+ 	  local srow, scol, erow, ecol = ts_utils.get_node_range(node)
+ 	  table.insert(formulas_loc, {srow, scol, erow, ecol})
+ 	end
+   local conceal_padding = {}
+  for loc_idx, loc in ipairs(formulas_loc) do
+     local srow, scol, erow, ecol = unpack(loc)
 
-	local inline_virt = {}
-	local virt_lines_above = {}
-	local virt_lines_below = {}
+  	local exp
+  	if ft == "typst" then
+  	  local typst = require("nabla.typst")
+  	  exp = typst.parse_math_node(formula_nodes[loc_idx], buf)
+  	else
+  	  local succ, texts = pcall(vim.api.nvim_buf_get_text, buf, srow, scol, erow, ecol, {})
+  	  if succ then
+  	    local line = table.concat(texts, " ")
+  	    line = line:gsub("%$", "")
+  	    line = line:gsub("\\%[", "")
+  	    line = line:gsub("\\%]", "")
+  	    line = line:gsub("^\\%(", "")
+  	    line = line:gsub("\\%)$", "")
+  	    line = vim.trim(line)
+  	    local success, result = pcall(parser.parse_all, line)
+  	    if success and result then
+  	      exp = result
+  	    end
+  	  end
+  	end
 
-	if mult_virt_ns[buf] == nil then
-			mult_virt_ns[buf] = vim.api.nvim_create_namespace("nabla.nvim")
-	end
-
-	local prev_row = -1
-	local prev_diff = 0
-
-	local next_prev_row
-	local next_prev_diff
-
-	local formula_nodes = utils.get_all_mathzones(opts)
-	local formulas_loc = {}
-	for _, node in ipairs(formula_nodes) do
-	  local srow, scol, erow, ecol = ts_utils.get_node_range(node)
-	  table.insert(formulas_loc, {srow, scol, erow, ecol})
-	end
-
-  local conceal_padding = {}
-  for _, loc in ipairs(formulas_loc) do
-    local srow, scol, erow, ecol = unpack(loc)
-  	local succ, texts = pcall(vim.api.nvim_buf_get_text, buf, srow, scol, erow, ecol, {})
-  	if succ then
-  		local line = table.concat(texts, " ")
-  		line = line:gsub("%$", "")
-  		line = line:gsub("\\%[", "")
-  		line = line:gsub("\\%]", "")
-  		line = line:gsub("^\\%(", "")
-  		line = line:gsub("\\%)$", "")
-  		line = vim.trim(line)
-  		local success, exp = pcall(parser.parse_all, line)
-
-
-  		if success and exp then
+  		if exp then
   			local succ, g = pcall(ascii.to_ascii, {exp}, 1)
   			if not succ then
   			  print(g)
   			  return 0
   			end
-
   			if not g or g == "" then
-  			  vim.api.nvim_echo({{"Empty expression detected. Please use the $...$ syntax.", "ErrorMsg"}}, false, {})
+  			  vim.api.nvim_echo({{"Empty expression detected.", "ErrorMsg"}}, false, {})
   			  return 0
   			end
 
@@ -564,7 +603,6 @@ function enable_virt(opts)
   			end
   		end
   	end
-  end
 
   -- @place_drawings_above_lines
 	local cleared_extmarks = {}
@@ -698,15 +736,11 @@ end
 
 return {
 	gen_drawing = gen_drawing,
+	gen_drawing_typst = gen_drawing_typst,
 	popup= popup,
 	enable_virt = enable_virt,
-
-
 	disable_virt = disable_virt,
-
 	toggle_virt = toggle_virt,
-
 	is_virt_enabled = is_virt_enabled,
-
 }
 
