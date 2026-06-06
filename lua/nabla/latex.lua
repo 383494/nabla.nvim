@@ -1,4 +1,3 @@
--- Generated using ntangle.nvim
 local buf
 local ptr
 local lnum
@@ -38,6 +37,7 @@ function parse()
 	}
 
   local chosexp
+  local barmatch
 
 	while not finish() do
 		local exp
@@ -114,18 +114,36 @@ function parse()
 		  		sym = " ",
 		  	}
 		  	nextc()
-
 			elseif getc() == "|" then
-				sym = {
-					kind = "funexp",
-			    lnum = lnum,
-					sym = "Vert",
-				}
 				nextc()
+				if barmatch then
+					-- closing \|
+					local first = barmatch.index
+					local inner = {}
+					for k = first, #explist.exps do
+						table.insert(inner, explist.exps[k])
+					end
+					for k = #explist.exps, first, -1 do
+						table.remove(explist.exps, k)
+					end
+					table.insert(explist.exps, {
+						kind = "barexp",
+						lnum = lnum,
+						exp = { kind = "explist", exps = inner, lnum = lnum },
+					})
+					barmatch = nil
+					-- skip normal exp assignment
+				else
+					-- opening \|
+					barmatch = { index = #explist.exps + 1 }
+					-- skip normal exp assignment
+				end
 			else
 				sym = parse_symbol()
 			end
-		  if (sym.sym == "text" or sym.sym == "texttt") and string.match(getc(), '{') then
+		  if not sym then
+		    -- sym was nil (barmatch consumed), skip
+		  elseif (sym.sym == "text" or sym.sym == "texttt") and string.match(getc(), '{') then
 		    nextc()
 		    local txt = ""
 		  	while not finish() and not string.match(getc(), '}') do
@@ -294,6 +312,16 @@ function parse()
         table.insert(explist.exps, exp)
       end
 		end
+	end
+
+	-- If barmatch is still open, the opening \| was unmatched — insert standalone Vert
+	if barmatch then
+		table.insert(explist.exps, barmatch.index, {
+			kind = "funexp",
+			lnum = lnum,
+			sym = "Vert",
+		})
+		barmatch = nil
 	end
 
 	return explist

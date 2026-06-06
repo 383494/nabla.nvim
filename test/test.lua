@@ -1,4 +1,3 @@
--- Generated using ntangle.nvim
 local fail = false
 
 local info = debug.getinfo(1, "S")

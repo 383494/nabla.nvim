@@ -1,0 +1,4 @@
+dot.double(x)
+---
+‥
+x

@@ -1,5 +1,3 @@
--- Generated using ntangle.nvim
--- local parser = require("nabla.parser")
 local parser = require("nabla.latex")
 
 local ascii = require("nabla.ascii")

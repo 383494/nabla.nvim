@@ -1,0 +1,4 @@
+dot.triple(x)
+---
+…
+x

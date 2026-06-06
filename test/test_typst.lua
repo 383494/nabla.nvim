@@ -9,6 +9,8 @@ end
 path = vim.fn.fnamemodify(path, ":h:h")
 
 -- Preload modules from local files
+package.loaded['nabla.symbols'] = dofile(path .. '/lua/nabla/symbols.lua')
+package.loaded['nabla.grid'] = dofile(path .. '/lua/nabla/grid.lua')
 package.loaded['nabla.typst'] = dofile(path .. '/lua/nabla/typst.lua')
 package.loaded['nabla.utils'] = dofile(path .. '/lua/nabla/utils.lua')
 package.loaded['nabla.ascii'] = dofile(path .. '/lua/nabla/ascii.lua')

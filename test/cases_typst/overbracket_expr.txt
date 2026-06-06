@@ -1,4 +1,4 @@
 overbracket(x * y * z)
 ---
-⎡           ⎤
- xcdotycdotz 
+⎡         ⎤
+ x · y · z 

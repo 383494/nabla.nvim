@@ -1,4 +1,3 @@
--- Generated using ntangle.nvim
 local utils = {}
 
 local has_treesitter, ts = pcall(require, "vim.treesitter")
@@ -16,7 +15,7 @@ local MATH_NODES = {
     inline_formula = true,
 }
 
-RENDER_CACHE = {}
+local RENDER_CACHE = {}
 
 utils.in_mathzone = function()
     if not has_treesitter then return false end

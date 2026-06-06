@@ -1,5 +1,5 @@
 a/b * c/d
 ---
-a    c
-―cdot―
-b    d
+a   c
+― · ―
+b   d

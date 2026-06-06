@@ -160,5 +160,3 @@ Credits
 
 Contribute
 ----------
-
-See [here](https://github.com/jbyuki/ntangle.nvim/wiki/How-to-use-ntangle.nvim).

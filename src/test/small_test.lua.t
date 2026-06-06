@@ -1,3 +1,0 @@
-##small-test
-@*=
-print("Done!")
