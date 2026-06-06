@@ -1,7 +1,7 @@
 nabla.nvim
 -----------
 
-Take your scentific notes in Neovim.
+Take your scientific notes in Neovim.
 
 <img src="https://i.postimg.cc/CL9MPM7g/Capture.png" width="400">
 <img src="https://user-images.githubusercontent.com/16160544/138817005-d326f3ef-d0b0-4372-9cf3-560fd2ec5dd3.png" width="400">
@@ -9,8 +9,7 @@ Take your scentific notes in Neovim.
 
 The colorscheme used here is [tokyonight](https://github.com/folke/tokyonight.nvim).
 
-An ASCII math generator from LaTeX equations.
-
+An ASCII math generator from LaTeX and [Typst](https://typst.app/) equations.
 Requirements
 ------------
 
@@ -18,10 +17,10 @@ Requirements
 * A colorscheme which supports treesitter [see here](https://github.com/rockerBOO/awesome-neovim#tree-sitter-supported-colorscheme) _(*)_
 * Tree-sitter : [nvim-treesitter/nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter) _(*)_
   (Not a dependency, but recommended to install parsers).
-* Latex parser : Install with `TSInstall latex` _(*)_
+* **LaTeX**: Latex parser — install with `TSInstall latex` _(*)_
+* **Typst** _(optional)_: Typst parser — install with `TSInstall typst` _(*)_
 
 _(*): Skip when using LazyVim_
-
 
 Install
 -------
@@ -61,7 +60,7 @@ Install
 
         config = function()
             require("nvim-treesitter.configs").setup({
-                ensure_installed = { "latex" },
+                ensure_installed = { "latex", "typst" },
                 auto_install = true,
                 sync_install = false,
             })
@@ -113,11 +112,38 @@ Usage
 -----
 
 * Press <kbd>leader + p</kbd> while the cursor is on a math expression to open floating menu
+* Works in `.tex` (LaTeX) and `.typ` (Typst) files
+
+Typst
+-----
+
+nabla.nvim supports Typst math syntax in `.typ` files. The detection is automatic
+via tree-sitter. Install the Typst parser with `:TSInstall typst`.
+
+Typst examples:
+
+| Typst | Renders as |
+|---|---|
+| `$x^2 + y^2$` | x² + y² |
+| `$a/b$` | fraction |
+| `$sqrt(x)$` | √x |
+| `$root(3, x)$` | ³√x |
+| `$sum_i^n x_i$` | ∑ with limits |
+| `$mat(1, 2; 3, 4)$` | matrix |
+| `$alpha + beta$` | α + β |
+| `$QQ, NN, RR$` | ℚ, ℕ, ℝ |
+| `$x -> y => z$` | x → y ⇒ z |
+| `$bold(x), cal(L), frak(g)$` | styled letters |
+| `$cancel(x), ul(x)$` | strikethrough, underline |
+| `$binom(n, k)$` | ⎛n⎞ binomial |
+| `$vec(a, b, c)$` | column vector |
+| `$cases(x, y; z, w)$` | case distinction |
 
 Reference
 ---------
 
-See [test/input.txt](https://github.com/jbyuki/nabla.nvim/blob/master/test/input.txt) for examples.
+See [test/input.txt](https://github.com/jbyuki/nabla.nvim/blob/master/test/input.txt) for LaTeX examples.
+See [test/cases_typst/](https://github.com/jbyuki/nabla.nvim/blob/master/test/cases_typst/) for Typst examples.
 
 **Note**: If the notation you need is not present or there is a misaligned expression, feel free to open an [Issue](https://github.com/jbyuki/nabla.nvim/issues).
 

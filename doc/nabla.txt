@@ -3,17 +3,17 @@
                         NABLA.NVIM REFERENCE MANUAL~
                                by jbyuki~
 
-nabla.nvim is a plugin to render formulas written in the Latex syntax directly
-in the Neovim editor using special Unicode characters and ASCII art like
-representation.
+nabla.nvim is a plugin to render formulas written in LaTeX or Typst syntax
+directly in the Neovim editor using special Unicode characters and ASCII art
+like representation.
 
 ======================================================================
 Requirements
 
  - A recent neovim version (0.8.0+)
  - nvim-treesitter
- - Latex parser: install with `:TSInstall latex`
-
+ - LaTeX: install parser with `:TSInstall latex`
+ - Typst (optional): install parser with `:TSInstall typst`
 ======================================================================
 Quickstart                                         *nabla-quickstart*
 
@@ -25,6 +25,10 @@ should appear.
                         $a^2 + b^2 = c^2$
 
                   The famous pythagorean theorem.
+
+The same works in Typst files:
+
+                        $a^2 + b^2 = c^2$
 
 A second mode allows to directly inline the nabla rendering into the document
 using virtual text and conceals. Invoke `:lua require"nabla".toggle_virt()` .
@@ -41,13 +45,12 @@ possible customization.
 It is usually the case that `popup()` and `toggle_virt()` are bound to keymaps
 for a quicker invocation.
 
-==========================================================================
 Popup                                             *nabla-popup*
 
 popup({opts})                                     *nabla.popup()*
 
-This command will parse the latex expression under the cursor and display a
-floating window with formula rendered inside of it. 
+This command will parse the LaTeX or Typst expression under the cursor and
+display a floating window with formula rendered inside of it.
 
   Parameters:~
       {opts} (table) Optional parameters which will override the parameters given to 
@@ -63,7 +66,7 @@ Virt-lines                                        *nabla-virtlines*
 enable_virt({opts})                               *nabla.enable_virt()*
 
 This will enable nabla.nvim on the whole buffer, detect every formula with the
-Latex parser and conceal and replace with a virtual text representation of it.
+LaTeX or Typst parser and conceal and replace with a virtual text representation of it.
 
   Parameters:~
       {opts} (table) Optional parameters.
