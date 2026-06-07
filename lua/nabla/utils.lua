@@ -59,7 +59,7 @@ utils.in_mathzone = function()
                 return node
             end
         else
-            if node:type()=="text" and node:parent():type()=="math_environment" then
+            if node:type()=="text" and node:parent() and node:parent():type()=="math_environment" then
                 return node
             end
             if MATH_NODES[node:type()] then
@@ -81,6 +81,33 @@ utils.in_mathzone = function()
         end
         node = node:parent()
     end
+
+    -- For markdown: the cursor may be in a markdown_inline injection,
+    -- not directly in a latex injection. Check if any latex injection
+    -- tree covers the cursor position.
+    if ft == "markdown" then
+        local ok, parser = pcall(ts.get_parser, buf, "markdown")
+        if ok and parser then
+            local cursor = vim.api.nvim_win_get_cursor(0)
+            local crow, ccol = cursor[1] - 1, cursor[2]
+            local found = nil
+            parser:for_each_tree(function(_, parent_ltree)
+                for _, child in pairs(parent_ltree:children()) do
+                    if child:lang() == "latex" then
+                        for _, tree in pairs(child:trees()) do
+                            local r = tree:root()
+                            local sr, sc, er, ec = ts.get_node_range(r)
+                            if crow >= sr and crow <= er then
+                                found = r
+                            end
+                        end
+                    end
+                end
+            end)
+            if found then return found end
+        end
+    end
+
     return false
 end
 
