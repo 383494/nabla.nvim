@@ -147,7 +147,7 @@ local ident_map = {
 	round = "round",
 
 	cancel = "cancel",
-	ul = "ul",
+	underline = "underline",
 	strike = "strike",
 	overbrace = "overbrace",
 	underbrace = "underbrace",
@@ -216,7 +216,7 @@ local consumes_args = {
 	mathit = 1,
 	mathtt = 1,
 	cancel = 1,
-	ul = 1,
+	underline = 1,
 	strike = 1,
 	overbrace = 1,
 	underbrace = 1,

@@ -584,7 +584,7 @@ function to_ascii(explist, exp_i)
     	  end
     	  g = ingrid
 
-    	elseif name == "ul" then
+    	elseif name == "underline" then
     	  local ingrid = to_ascii({explist[exp_i+1]}, 1)
     	  exp_i = exp_i + 1
     	  g = ingrid:join_vert(make_bar_decoration(style.div_low_bar, ingrid))
