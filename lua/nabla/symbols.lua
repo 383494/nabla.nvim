@@ -124,7 +124,7 @@ local special_nums = {
 local special_syms = {
 	["..."] = "…",
 
-	["cdot"] = "·",
+	["cdot"] = "∙",
 	["approx"] = "≈",
 	["simeq"] = "≃",
 	["sim"] = "∼",

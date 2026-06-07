@@ -1,7 +1,10 @@
 local utils = {}
 
 local has_treesitter, ts = pcall(require, "vim.treesitter")
-local _, query = pcall(require, "vim.treesitter.query")
+local get_node_text = vim.treesitter.get_node_text or (function()
+  local ok, q = pcall(require, "vim.treesitter.query")
+  return ok and q.get_node_text or nil
+end)()
 
 local MATH_ENVIRONMENTS = {
     displaymath = true,
@@ -68,7 +71,7 @@ utils.in_mathzone = function()
                 if
                     names
                     and names[1]
-                    and MATH_ENVIRONMENTS[query.get_node_text(names[1], buf):gsub(
+                    and MATH_ENVIRONMENTS[get_node_text(names[1], buf):gsub(
                         "[%s*]", ""
                     )]
                 then
@@ -176,7 +179,7 @@ utils.get_mathzones_in_node = function(parent, out)
       if
         names
         and names[1]
-        and MATH_ENVIRONMENTS[query.get_node_text(names[1], buf):gsub(
+        and MATH_ENVIRONMENTS[get_node_text(names[1], buf):gsub(
         "[%s*]",
         ""
         )]
