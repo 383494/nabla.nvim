@@ -1,0 +1,5 @@
+\underbrace{ab}_{cd}
+---
+ab  
+⏟   
+  cd

@@ -132,15 +132,17 @@ local function combine_matrix_grid(cellsgrid, maxheight)
     row_heights[i] = height_below + height_above + 1
     baselines[i] = baseline
   end
-  for i=1,#cellsgrid[1] do
+  local maxcols = 0
+  for _, row in ipairs(cellsgrid) do maxcols = math.max(maxcols, #row) end
+  for i=1,maxcols do
     local col
     for j=1,#cellsgrid do
-      local cell = cellsgrid[j][i]
+      local cell = cellsgrid[j][i] or grid:new(0, 1, {""})
       local sup = baselines[j] - cell.my
       local sdown = row_heights[j] - cell.h - sup
       if sup > 0 then cell = grid:new(cell.w, sup):join_vert(cell) end
       if sdown > 0 then cell = cell:join_vert(grid:new(cell.w, sdown)) end
-      if i < #cellsgrid[1] then
+      if i < maxcols then
         local spacer = grid:new(1, cell.h)
         spacer.my = cell.my
         cell = cell:join_hori(spacer)
@@ -293,6 +295,7 @@ local passthrough_names = {
 	["mathbf"] = true,
 	["mathit"] = true,
 	["mathtt"] = true,
+	["mathrm"] = true,
 	["boldsymbol"] = true,
 	["upright"] = true,
 	["sans"] = true,
@@ -553,6 +556,13 @@ function to_ascii(explist, exp_i)
     		else
     			g = grid:new(#name + 1, 1, {name .. " "})
     		end
+
+   	elseif name == "pmod" then
+    	  local arggrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local modprefix = grid:new(4, 1, {"mod "})
+    	  local inner = modprefix:join_hori(arggrid)
+    	  g = inner:enclose_paren()
 
     	elseif passthrough_names[name] then
     		g = to_ascii({explist[exp_i+1]}, 1)

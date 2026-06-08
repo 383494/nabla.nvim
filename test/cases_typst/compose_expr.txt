@@ -1,3 +1,0 @@
-f compose g
----
-f ∘ g

@@ -348,6 +348,45 @@ function M.walk_formula(formula, buf)
 		end
 	end
 
+	-- Check if formula contains alignment markers
+	local has_align = false
+	for _, child in ipairs(children) do
+		if child:type() == "align" or child:type() == "linebreak" then
+			has_align = true
+			break
+		end
+	end
+
+	if has_align then
+		-- Build aligned blockexp: & = column sep, \ = row sep (linebreak node)
+		local content_exps = {}
+		local i = 1
+		while i <= #children do
+			local child = children[i]
+			local ntype = child:type()
+
+			if ntype == "align" then
+				table.insert(content_exps, { kind = "symexp", sym = "&" })
+				i = i + 1
+			elseif ntype == "linebreak" then
+				table.insert(content_exps, { kind = "funexp", sym = "\\" })
+				i = i + 1
+			else
+				local nodes = walk_node(child, buf)
+				for _, n in ipairs(nodes) do
+					table.insert(content_exps, n)
+				end
+				i = i + 1
+			end
+		end
+		return {{
+			kind = "blockexp",
+			first = { kind = "explist", exps = { { kind = "symexp", sym = "aligned" } } },
+			content = { kind = "explist", exps = content_exps },
+		}}
+	end
+
+	-- No alignment: process normally
 	local i = 1
 	while i <= #children do
 		local child = children[i]

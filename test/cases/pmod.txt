@@ -1,0 +1,3 @@
+a \pmod{n}
+---
+a(mod n)

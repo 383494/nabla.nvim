@@ -1,0 +1,3 @@
+a \leq b \leq c
+---
+a ≤ b ≤ c
