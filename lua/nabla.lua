@@ -274,7 +274,10 @@ local function gen_drawing_latex_ts(text)
   local latex_ts = require("nabla.latex_ts")
   local ascii = require("nabla.ascii")
   local buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, {"$" .. text .. "$"})
+  local lines = vim.split(text, "\n")
+  lines[1] = "$" .. lines[1]
+  lines[#lines] = lines[#lines] .. "$"
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   local ok, ts_parser = pcall(vim.treesitter.get_parser, buf, "latex")
   if not ok or not ts_parser then
     vim.api.nvim_buf_delete(buf, {force = true})

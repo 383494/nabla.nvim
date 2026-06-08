@@ -130,6 +130,7 @@ local special_syms = {
 	["sim"] = "∼",
 	["propto"] = "∝",
 	["neq"] = "≠",
+	["ne"] = "≠",
 	["doteq"] = "≐",
 	["leq"] = "≤",
 	["cong"] = "≅",

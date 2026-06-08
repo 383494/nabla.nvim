@@ -468,7 +468,7 @@ function to_ascii(explist, exp_i)
     	  g = make_bracket_enclosure(left_c, right_c, ingrid)
 
     	elseif name == "Vert" then
-    	  if exp_i + 1 <= #explist then
+    	  if exp_i + 1 <= #explist and explist[exp_i+1].kind ~= "supexp" and explist[exp_i+1].kind ~= "subexp" then
     	    local ingrid = to_ascii({explist[exp_i+1]}, 1)
     	    exp_i = exp_i + 1
     	    local bars = {}
@@ -642,8 +642,18 @@ function to_ascii(explist, exp_i)
 
     elseif exp.kind == "blockexp" then
       local sym = unpack_explist(exp.first)
-      exp_i = exp_i + 1
       local name = sym.sym
+      -- Skip duplicate env name entry if present (handwritten parser wraps in explist)
+      local next_exp = explist[exp_i + 1]
+      local next_name = nil
+      if next_exp and next_exp.kind == "symexp" then
+        next_name = next_exp.sym
+      elseif next_exp and next_exp.kind == "explist" and #next_exp.exps == 1 and next_exp.exps[1].kind == "symexp" then
+        next_name = next_exp.exps[1].sym
+      end
+      if next_name and next_name == name then
+        exp_i = exp_i + 1
+      end
       local enclosure = block_enclosures[name]
       if not enclosure then error("Unknown block expression " .. name) end
       local cellsgrid, maxheight = grid_of_exps(exp.content.exps)

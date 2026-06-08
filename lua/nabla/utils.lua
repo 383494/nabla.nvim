@@ -97,7 +97,7 @@ utils.in_mathzone = function()
                         for _, tree in pairs(child:trees()) do
                             local r = tree:root()
                             local sr, sc, er, ec = ts.get_node_range(r)
-                            if crow >= sr and crow <= er then
+                            if crow >= sr and crow <= er and (crow ~= sr or ccol >= sc) and (crow ~= er or ccol <= ec) then
                                 found = r
                             end
                         end

@@ -289,7 +289,7 @@ walk_generic_command = function(node, buf)
     or cmd_name == "bar" or cmd_name == "vec"
     or cmd_name == "overline" or cmd_name == "underline"
     or cmd_name == "cancel" or cmd_name == "strike"
-    or cmd_name == "mathbb" or cmd_name == "mathcal" or cmd_name == "mathfrak"
+    or cmd_name == "mathbb" or cmd_name == "mathbf" or cmd_name == "mathcal" or cmd_name == "mathfrak"
     or cmd_name == "mathscr" or cmd_name == "mathsf" or cmd_name == "mathtt"
     or cmd_name == "overbrace" or cmd_name == "underbrace"
     or cmd_name == "xrightarrow" or cmd_name == "xleftarrow"
@@ -509,6 +509,14 @@ end
 
 --- Post-process result list: pair Vert markers into barexp
 local function pair_bars(result)
+  -- First, recursively process nested explists
+  for i, exp in ipairs(result) do
+    if exp.kind == "explist" and exp.exps then
+      exp.exps = pair_bars(exp.exps)
+    end
+  end
+
+  -- Then pair Vert markers at this level
   local paired = {}
   local barmatch
   for _, exp in ipairs(result) do
@@ -636,6 +644,9 @@ function M.parse_math_node(math_node, buf)
         i = i + 1
       elseif ct == "=" then
         table.insert(result, { kind = "symexp", sym = "=" })
+        i = i + 1
+      elseif ct == "," then
+        table.insert(result, { kind = "symexp", sym = "," })
         i = i + 1
       else
         i = i + 1
