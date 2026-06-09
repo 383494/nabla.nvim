@@ -1,3 +1,7 @@
+A fork of [jbyuki/nabla.nvim](https://github.com/jbyuki/nabla.nvim), with typst support and AI slop.
+
+Created mainly for my own use, but PRs are welcome too.
+
 nabla.nvim
 -----------
 
@@ -31,6 +35,7 @@ Install
   ```vim
   Plug 'jbyuki/nabla.nvim'
   ```
+
 </details>
 
 <details>
@@ -39,6 +44,7 @@ Install
   ```vim
   use 'jbyuki/nabla.nvim'
   ```
+
 </details>
 
 <details>
@@ -78,21 +84,24 @@ Install
     },
 
   ```
+
 </details>
 
 <details>
   <summary>Using the built-in package manager</summary>
 
-  * Create a folder `pack/<a folder name of your choosing>/start`
-  * Inside the `start` folder `git clone` nabla.nvim
-    * `git clone https://github.com/jbyuki/nabla.nvim`
-  * In your init.lua, add the pack folder to packpath (see `:help packpath`)
+* Create a folder `pack/<a folder name of your choosing>/start`
+* Inside the `start` folder `git clone` nabla.nvim
+  * `git clone https://github.com/jbyuki/nabla.nvim`
+* In your init.lua, add the pack folder to packpath (see `:help packpath`)
+
     ```lua
     vim.o.packpath = vim.o.packpath .. ",<path to where pack/ is located>"
     ```
 
-  * `git pull` in the plugin folder to update it. You want something more viable
+* `git pull` in the plugin folder to update it. You want something more viable
   though, that's why package managers are useful.
+
 </details>
 
 Configuration
@@ -120,25 +129,6 @@ Typst
 nabla.nvim supports Typst math syntax in `.typ` files. The detection is automatic
 via tree-sitter. Install the Typst parser with `:TSInstall typst`.
 
-Typst examples:
-
-| Typst | Renders as |
-|---|---|
-| `$x^2 + y^2$` | x² + y² |
-| `$a/b$` | fraction |
-| `$sqrt(x)$` | √x |
-| `$root(3, x)$` | ³√x |
-| `$sum_i^n x_i$` | ∑ with limits |
-| `$mat(1, 2; 3, 4)$` | matrix |
-| `$alpha + beta$` | α + β |
-| `$QQ, NN, RR$` | ℚ, ℕ, ℝ |
-| `$x -> y => z$` | x → y ⇒ z |
-| `$bold(x), cal(L), frak(g)$` | styled letters |
-| `$cancel(x), ul(x)$` | strikethrough, underline |
-| `$binom(n, k)$` | ⎛n⎞ binomial |
-| `$vec(a, b, c)$` | column vector |
-| `$cases(x, y; z, w)$` | case distinction |
-
 Reference
 ---------
 
@@ -160,3 +150,6 @@ Credits
 
 Contribute
 ----------
+
+Consider contributing to upstream and see their [wiki](https://github.com/jbyuki/ntangle.nvim/wiki/How-to-use-ntangle.nvim).
+
