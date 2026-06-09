@@ -64,7 +64,9 @@ local function stack_subsup(explist, i, g)
   i = i + 1
   while i <= #explist do
     local exp = explist[i]
-    if exp.kind == "subexp" then
+    if exp.kind == "funexp" and (exp.sym == "limits" or exp.sym == "nolimits") then
+      i = i + 1
+    elseif exp.kind == "subexp" then
       i = i + 1
     	local my = g.my
     	local subgrid = to_ascii({explist[i]}, 1)
@@ -335,7 +337,7 @@ local block_enclosures = {
 	["aligned"] = function(r) return r end,
 	["pmatrix"] = function(r) return r:enclose_paren() end,
 	["bmatrix"] = function(r) return combine_brackets(r) end,
-	["cases"]   = function(r) return r:enclose_bracket() end,
+	["cases"]   = function(r) return r:enclose_left_bracket() end,
 	["binom"]   = function(r) return r:enclose_paren() end,
 	["vec"]     = function(r) return r:enclose_paren() end,
 }
@@ -399,20 +401,53 @@ local function make_over_under_decor(decor_info, content_grid, is_under)
   return is_under and content_grid:join_vert(row) or row:join_vert(content_grid)
 end
 
+local function font_map_char(font_table, ch)
+  return font_table[ch] or ch
+end
+
 local function make_font_grid(font_table, explist, exp_i)
-  local sym = unpack_explist(explist[exp_i+1])
+  local arg = explist[exp_i+1]
   exp_i = exp_i + 1
-  if sym.kind == "symexp" or sym.kind == "numexp" then
+
+  -- Collect all symexp/numexp entries from the argument
+  local function render_font_sym(sym)
     local s = tostring(sym.sym or sym.num)
     local cell = ""
     for i=1,#s do
-      local mapped = font_table[s:sub(i,i)]
-      assert(mapped, "font: " .. s:sub(i,i) .. " not found")
-      cell = cell .. mapped
+      cell = cell .. font_map_char(font_table, s:sub(i,i))
     end
-    return grid:new(#s, 1, { cell }), exp_i
+    return cell, #s
+  end
+
+  if arg.kind == "explist" and #arg.exps > 1 then
+    -- Multi-expression arg like \mathcal{C'}: concatenate mapped chars
+    local cell = ""
+    local total_w = 0
+    for _, exp in ipairs(arg.exps) do
+      if exp.kind == "symexp" or exp.kind == "numexp" then
+        local c, w = render_font_sym(exp)
+        cell = cell .. c
+        total_w = total_w + w
+      elseif exp.kind == "funexp" then
+        local g = to_ascii({exp}, 1)
+        -- best-effort: just append rendered text
+        for y=1,g.h do
+          cell = cell .. g.content[y]
+        end
+        total_w = total_w + g.w
+      end
+    end
+    return grid:new(total_w, 1, { cell }), exp_i
+  end
+
+  -- Single-expression arg
+  local sym = arg
+  if sym.kind == "explist" then sym = unpack_explist(sym) end
+  if sym.kind == "symexp" or sym.kind == "numexp" then
+    local cell, w = render_font_sym(sym)
+    return grid:new(w, 1, { cell }), exp_i
   elseif sym.kind == "funexp" then
-    return to_ascii({explist[exp_i]}, 1), exp_i
+    return to_ascii({arg}, 1), exp_i
   end
   error("font: unsupported kind " .. (sym.kind or "nil"))
 end
@@ -563,6 +598,8 @@ function to_ascii(explist, exp_i)
     	  local modprefix = grid:new(4, 1, {"mod "})
     	  local inner = modprefix:join_hori(arggrid)
     	  g = inner:enclose_paren()
+   	elseif name == "bmod" then
+    	  g = grid:new(5, 1, {" mod "})
 
     	elseif passthrough_names[name] then
     		g = to_ascii({explist[exp_i+1]}, 1)
@@ -633,6 +670,34 @@ function to_ascii(explist, exp_i)
       	g = to_ascii(inside_bra, 1):enclose_bracket()
       	exp_i = exp_i + 1
 
+   	elseif name == "xrightarrow" or name == "xleftarrow" then
+    	  local abovegrid = to_ascii({explist[exp_i+1]}, 1)
+    	  exp_i = exp_i + 1
+    	  local belowgrid
+    	  if exp_i + 1 <= #explist and explist[exp_i+1].kind == "explist" then
+    	    belowgrid = to_ascii(explist[exp_i+1].exps, 1)
+    	    exp_i = exp_i + 1
+    	  end
+    	  local text_w = abovegrid.w
+    	  if belowgrid then text_w = math.max(text_w, belowgrid.w) end
+    	  local arrow_w = math.max(text_w + 2, 3)
+    	  local bar_len = arrow_w - 1
+    	  local arrow_str
+    	  if name == "xrightarrow" then
+    	    arrow_str = string.rep(style.div_middle_bar, bar_len) .. style.vec_arrow
+    	  else
+    	    arrow_str = "←" .. string.rep(style.div_middle_bar, bar_len)
+    	  end
+    	  local arrowgrid = grid:new(arrow_w, 1, { arrow_str })
+    	  g = abovegrid:join_vert(arrowgrid)
+    	  if belowgrid then
+    	    g = g:join_vert(belowgrid)
+    	  end
+    	  g.my = abovegrid.h
+
+   	elseif name == "limits" or name == "nolimits" then
+    	  -- consumed: sub/sup already stacked by stack_subsup
+
     	else
     		g = grid:new(utf8len("\\" .. name), 1, { "\\" .. name })
     	end
@@ -701,6 +766,9 @@ function to_ascii(explist, exp_i)
 
     elseif exp.kind == "braexp" then
     	g = combine_brackets(to_ascii({exp.exp}, 1))
+
+    elseif exp.kind == "angexp" then
+    	g = to_ascii({exp.exp}, 1):enclose_angle()
 
     elseif exp.kind == "barexp" then
       local ingrid = to_ascii({exp.exp}, 1)

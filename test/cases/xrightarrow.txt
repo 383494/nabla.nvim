@@ -1,0 +1,4 @@
+a \xrightarrow{abc} b
+---
+  abc  
+a――――→b

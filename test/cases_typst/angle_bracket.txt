@@ -1,0 +1,3 @@
+a angle.l x angle.r
+---
+a ⟨ x ⟩ 

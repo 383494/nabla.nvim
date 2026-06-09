@@ -23,6 +23,16 @@ local function get_curly_args(cmd_node)
   return args
 end
 
+local function get_bracket_args(cmd_node)
+  local args = {}
+  for child in cmd_node:iter_children() do
+    if child:type() == "bracket_group" then
+      table.insert(args, child)
+    end
+  end
+  return args
+end
+
 -- Forward declarations
 local walk_node
 local walk_generic_command
@@ -292,7 +302,6 @@ walk_generic_command = function(node, buf)
     or cmd_name == "mathbb" or cmd_name == "mathbf" or cmd_name == "mathcal" or cmd_name == "mathfrak"
     or cmd_name == "mathscr" or cmd_name == "mathsf" or cmd_name == "mathtt"
     or cmd_name == "overbrace" or cmd_name == "underbrace"
-    or cmd_name == "xrightarrow" or cmd_name == "xleftarrow"
     or cmd_name == "binom" or cmd_name == "pmod"
     or cmd_name == "operatorname" or cmd_name == "mathrm"
     or cmd_name == "texttt" or cmd_name == "textit" or cmd_name == "textbf" then
@@ -301,6 +310,19 @@ walk_generic_command = function(node, buf)
       table.insert(result, { kind = "explist", exps = walk_curly_content(args[1], buf) })
     end
     return result
+
+  -- \xrightarrow / \xleftarrow: optional [below] + mandatory {above}
+  elseif cmd_name == "xrightarrow" or cmd_name == "xleftarrow" then
+    local result = { { kind = "funexp", sym = cmd_name } }
+    local bracket_args = get_bracket_args(node)
+    if #bracket_args >= 1 then
+      table.insert(result, { kind = "explist", exps = walk_curly_content(bracket_args[1], buf) })
+    end
+    if #args >= 1 then
+      table.insert(result, { kind = "explist", exps = walk_curly_content(args[1], buf) })
+    end
+    return result
+
 
   -- \text{...} - extract raw text preserving whitespace
   elseif cmd_name == "text" then
@@ -358,6 +380,18 @@ local function walk_math_delimiter(node, buf)
     local t = child:type()
     if t == "\\left" or t == "\\right" then
       -- skip markers
+    elseif t == "command_name" then
+      -- command-based delimiters like \langle, \rangle
+      local cmd_text = get_text(child, buf):gsub("^\\", "")
+      if cmd_text == "langle" or cmd_text == "rangle" then
+        if not open_char then
+          open_char = cmd_text
+        else
+          close_char = cmd_text
+        end
+      else
+        table.insert(content_children, child)
+      end
     elseif not child:named() then
       if not open_char then
         open_char = t
@@ -381,6 +415,8 @@ local function walk_math_delimiter(node, buf)
 
   if open_char == "[" and close_char == "]" then
     return { kind = "braexp", exp = inner }
+  elseif open_char == "langle" or close_char == "rangle" then
+    return { kind = "angexp", exp = inner }
   else
     return { kind = "parexp", exp = inner }
   end
@@ -686,6 +722,37 @@ function M.parse_math_node(math_node, buf)
           table.insert(result, { kind = "explist", exps = degree_exps })
         end
       end
+      -- Check if the last result was \xrightarrow/\xleftarrow with no args, followed by [below]{above}
+      if #result >= 1 and result[#result].kind == "funexp"
+        and (result[#result].sym == "xrightarrow" or result[#result].sym == "xleftarrow")
+        and i <= #children and not children[i]:named() and children[i]:type() == "[" then
+        local arrow_name = result[#result].sym
+        table.remove(result) -- remove the bare funexp
+        local below_exps = {}
+        i = i + 1 -- skip [
+        while i <= #children do
+          local c = children[i]
+          if not c:named() and c:type() == "]" then
+            i = i + 1 -- skip ]
+            break
+          end
+          local nodes = walk_node(c, buf)
+          for _, n in ipairs(nodes) do
+            table.insert(below_exps, n)
+          end
+          i = i + 1
+        end
+        if i <= #children and children[i]:type() == "curly_group" then
+          local above_exps = walk_curly_content(children[i], buf)
+          table.insert(result, { kind = "funexp", sym = arrow_name })
+          table.insert(result, { kind = "explist", exps = below_exps })
+          table.insert(result, { kind = "explist", exps = above_exps })
+          i = i + 1
+        else
+          table.insert(result, { kind = "funexp", sym = arrow_name })
+          table.insert(result, { kind = "explist", exps = below_exps })
+        end
+      end
     elseif ct == "generic_command" then
       local cmd_name = get_cmd_name(child, buf)
       local cmd_args = get_curly_args(child)
@@ -729,6 +796,36 @@ function M.parse_math_node(math_node, buf)
             table.insert(result, n)
           end
           i = i + 1
+        end
+      elseif (cmd_name == "xrightarrow" or cmd_name == "xleftarrow")
+        and i + 1 <= #children and not children[i + 1]:named() and children[i + 1]:type() == "[" then
+        -- Consume optional [below]
+        local below_exps = {}
+        i = i + 1 -- skip command
+        i = i + 1 -- skip [
+        while i <= #children do
+          local c = children[i]
+          if not c:named() and c:type() == "]" then
+            i = i + 1 -- skip ]
+            break
+          end
+          local nodes = walk_node(c, buf)
+          for _, n in ipairs(nodes) do
+            table.insert(below_exps, n)
+          end
+          i = i + 1
+        end
+        -- Consume mandatory {above}
+        if i <= #children and children[i]:type() == "curly_group" then
+          local above_exps = walk_curly_content(children[i], buf)
+          table.insert(result, { kind = "funexp", sym = cmd_name })
+          table.insert(result, { kind = "explist", exps = below_exps })
+          table.insert(result, { kind = "explist", exps = above_exps })
+          i = i + 1
+        else
+          -- No curly_group after [below], just emit with below only
+          table.insert(result, { kind = "funexp", sym = cmd_name })
+          table.insert(result, { kind = "explist", exps = below_exps })
         end
       else
         local nodes = walk_generic_command(child, buf)

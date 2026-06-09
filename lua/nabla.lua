@@ -944,7 +944,9 @@ function enable_virt(opts)
     -- Block 0 below rows
     if below_blocks[1] then
       for _, vl in ipairs(below_blocks[1]) do
-        table.insert(final_below, vl)
+        local has_content = false
+        for _, chunk in ipairs(vl) do if chunk[1] ~= " " then has_content = true; break end end
+        if has_content then table.insert(final_below, vl) end
       end
     end
 
@@ -1035,6 +1037,7 @@ function disable_virt()
     vim.api.nvim_buf_clear_namespace(buf, mult_virt_ns[buf], 0, -1)
     mult_virt_ns[buf] = nil
   end
+  utils.clear_cache(buf)
   local win = vim.api.nvim_get_current_win()
   if saved_conceallevel[win] then
     vim.wo[win].conceallevel = saved_conceallevel[win]

@@ -219,5 +219,10 @@ utils.get_mathzones_in_node = function(parent, out)
 end
 
 
+
+utils.clear_cache = function(buf)
+  RENDER_CACHE[buf] = nil
+end
+
 return utils
 

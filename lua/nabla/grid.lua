@@ -264,4 +264,60 @@ function grid:enclose_bracket()
 	return c2
 end
 
+function grid:enclose_left_bracket()
+	local left_content = {}
+	if self.h == 1 then
+		left_content = { style.left_single_bra }
+	elseif self.h == 2 then
+		left_content = { style.left_top_bra, style.left_bottom_bra }
+	else
+		for y=1,self.h do
+			if y == 1 then table.insert(left_content, style.left_top_bra)
+			elseif y == self.h then table.insert(left_content, style.left_bottom_bra)
+			elseif y == math.ceil(self.h/2) then table.insert(left_content, style.left_middle_bra)
+			else table.insert(left_content, style.left_other_bra)
+			end
+		end
+	end
+	local left_bra = grid:new(1, self.h, left_content, "bra")
+	left_bra.my = self.my
+	return left_bra:join_hori(self)
+end
+
+
+
+function grid:enclose_angle()
+	local left_content = {}
+	if self.h == 1 then
+		left_content = { "⟨" }
+	else
+		for y=1,self.h do
+			if y == 1 then table.insert(left_content, "╱")
+			elseif y == self.h then table.insert(left_content, "╲")
+			else table.insert(left_content, "│")
+			end
+		end
+	end
+	local left_ang = grid:new(1, self.h, left_content, "ang")
+	left_ang.my = self.my
+
+	local right_content = {}
+	if self.h == 1 then
+		right_content = { "⟩" }
+	else
+		for y=1,self.h do
+			if y == 1 then table.insert(right_content, "╲")
+			elseif y == self.h then table.insert(right_content, "╱")
+			else table.insert(right_content, "│")
+			end
+		end
+	end
+	local right_ang = grid:new(1, self.h, right_content, "ang")
+	right_ang.my = self.my
+
+	local c1 = left_ang:join_hori(self)
+	local c2 = c1:join_hori(right_ang)
+	return c2
+end
+
 return grid

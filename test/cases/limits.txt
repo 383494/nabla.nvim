@@ -1,0 +1,5 @@
+\sum\limits_{i=0}^n x_i
+---
+  n     
+  ∑   xᵢ
+i = 0   

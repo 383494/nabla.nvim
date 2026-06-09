@@ -98,8 +98,6 @@ local ident_map = {
 	sim = "sim",
 	simeq = "simeq",
 	doteq = "doteq",
-	pm = "pm",
-	mp = "mp",
 	cdot = "cdot",
 	dots = "dots",
 	cdots = "cdots",
@@ -272,6 +270,10 @@ local field_map = {
 	["tilde.not"] = "nsim",
 	["star.op"] = "star",
 	["slash.op"] = "slash",
+	["angle.l"] = "langle",
+	["angle.r"] = "rangle",
+	["chevron.l"] = "langle",
+	["chevron.r"] = "rangle",
 }
 
 local function walk_node(node, buf)
@@ -597,6 +599,28 @@ function M.walk_call(node, buf)
 				table.insert(arg_exps, n)
 			end
 		end
+		-- Detect delimiter pairs and wrap content
+		if #arg_exps >= 3 then
+			local first = arg_exps[1]
+			local last = arg_exps[#arg_exps]
+			local wrap_kind = nil
+			if first.kind == "funexp" and last.kind == "funexp" then
+				if first.sym == "langle" and last.sym == "rangle" then
+					wrap_kind = "angexp"
+				elseif first.sym == "(" and last.sym == ")" then
+					wrap_kind = "parexp"
+				elseif first.sym == "[" and last.sym == "]" then
+					wrap_kind = "braexp"
+				end
+			end
+			if wrap_kind then
+				local inner = {}
+				for i = 2, #arg_exps - 1 do
+					table.insert(inner, arg_exps[i])
+				end
+				return { { kind = wrap_kind, exp = { kind = "explist", exps = inner } } }
+			end
+		end
 		return arg_exps
 	end
 
@@ -661,7 +685,7 @@ function M.walk_block_call(func_name, args, separators, buf)
 	local block_name = block_fns[func_name]
 	local content_exps = {}
 
-	if func_name == "binom" or func_name == "vec" then
+	if func_name == "binom" or func_name == "vec" or func_name == "cases" then
 		-- Each positional argument is a separate row
 		for i, arg in ipairs(args) do
 			if i > 1 then
