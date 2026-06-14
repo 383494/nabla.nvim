@@ -975,6 +975,7 @@ local plain_functions = {
 	["lim"] = true,
 	["ln"] = true,
 	["log"] = true,
+	["max"] = true,
 	["min"] = true,
 }
 
