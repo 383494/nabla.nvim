@@ -1,0 +1,3 @@
+A tack.r.double B tack.r.not C
+---
+A ⊨ B ⊬ C

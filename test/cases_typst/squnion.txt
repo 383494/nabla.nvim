@@ -1,0 +1,3 @@
+union.sq x inter.sq y
+---
+ ⊔ x ⊓ y

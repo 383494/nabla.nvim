@@ -1,0 +1,3 @@
+prec.eq.tilde x succ.eq.tilde y
+---
+ ≾ x ≿ y

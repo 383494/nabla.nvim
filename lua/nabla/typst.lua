@@ -37,6 +37,7 @@ local symbol_map = {
 
 local ident_map = {
 	inter = "inter",
+	without = "setminus",
 	perp = "perp",
 	union = "union",
 	alpha = "alpha",
@@ -261,12 +262,20 @@ local field_map = {
 	["gt.eq"] = "geq",
 	["prec.eq"] = "preceq",
 	["succ.eq"] = "succeq",
+	["prec.eq.not"] = "precneqq",
+	["succ.eq.not"] = "succneqq",
+	["prec.eq.tilde"] = "precapprox",
+	["succ.eq.tilde"] = "succapprox",
+	["prec.tilde"] = "precsim",
+	["succ.tilde"] = "succsim",
 	["arrow.l"] = "leftarrow",
 	["arrow.r"] = "rightarrow",
 	["arrow.l.r"] = "leftrightarrow",
 	["arrow.t"] = "uparrow",
 	["arrow.b"] = "downarrow",
 	["tilde.eq"] = "simeq",
+	["tilde.eq.not"] = "nsimeq",
+	["tilde.eq.rev"] = "backsimeq",
 	["tilde.not"] = "nsim",
 	["star.op"] = "star",
 	["slash.op"] = "slash",
@@ -274,6 +283,49 @@ local field_map = {
 	["angle.r"] = "rangle",
 	["chevron.l"] = "langle",
 	["chevron.r"] = "rangle",
+	-- Set operations (dotted variants)
+	["union.big"] = "bigcup",
+	["union.small"] = "union",
+	["union.sq"] = "sqcup",
+	["union.dot"] = "uplus",
+	["union.plus"] = "uplus",
+	["inter.big"] = "bigcap",
+	["inter.small"] = "inter",
+	["inter.sq"] = "sqcap",
+	-- Subset / superset
+	["subset.eq"] = "subseteq",
+	["subset.eq.not"] = "nsubseteq",
+	["subset.eq.sq"] = "sqsubseteq",
+	["subset.dot"] = "sqsubset",
+	["subset.eq.rev"] = "supseteq",
+	["supset.eq"] = "supseteq",
+	["supset.eq.not"] = "nsupseteq",
+	["supset.eq.sq"] = "sqsupseteq",
+	["supset.dot"] = "sqsupset",
+	["supset.eq.rev"] = "subseteq",
+	-- Equality / inequality
+	["equiv"] = "equiv",
+	["equiv.not"] = "nequiv",
+	["eq.triple"] = "equiv",
+	["eq.not"] = "neq",
+	-- Turnstile / logical
+	["tack.r"] = "vdash",
+	["tack.r.not"] = "nvdash",
+	["tack.r.double"] = "vDash",
+	["tack.r.double.not"] = "nvDash",
+	["tack.r.long"] = "vdash",
+	["tack.l"] = "dashv",
+	["tack.t"] = "top",
+	["tack.b"] = "bot",
+	["models"] = "models",
+	-- Triangle
+	-- Triangle
+	["lt.tri.eq"] = "unlhd",
+	["gt.tri.eq"] = "unrhd",
+	["lt.tri.eq.not"] = "ntrianglelefteq",
+	["gt.tri.eq.not"] = "ntrianglerighteq",
+	["lt.tri.slanted"] = "vartriangleleft",
+	["gt.tri.slanted"] = "vartriangleright",
 }
 
 local function walk_node(node, buf)
@@ -772,6 +824,9 @@ function M.walk_apply(node, buf)
 		if child:named() then
 			if child:type() == "ident" or child:type() == "letter" then
 				func_name = get_text(child, buf)
+			elseif child:type() == "field" then
+				local raw = get_text(child, buf)
+				func_name = field_map[raw] or raw
 			elseif child:type() == "formula" then
 				inner = M.walk_formula(child, buf)
 			end

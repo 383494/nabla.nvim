@@ -1,0 +1,3 @@
+A supset.eq B subset.eq C
+---
+A ⊇ B ⊆ C

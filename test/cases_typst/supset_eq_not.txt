@@ -1,0 +1,3 @@
+A supset.eq.not B subset.eq.not C
+---
+A ⊋ B ⊊ C

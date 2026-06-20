@@ -1,0 +1,3 @@
+lt.tri.eq x gt.tri.eq y
+---
+ ⊴ x ⊵ y

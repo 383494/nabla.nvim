@@ -1,0 +1,3 @@
+tack.r p tack.l q
+---
+ ⊢ p ⊣ q

@@ -1,0 +1,3 @@
+x in A union.big B
+---
+x ∈ A ⋃ B
