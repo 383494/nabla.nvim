@@ -1,0 +1,6 @@
+# ft: typst
+$frac(a, b)$
+---
+a
+―
+b

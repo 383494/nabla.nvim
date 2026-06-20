@@ -1,0 +1,4 @@
+# ft: markdown
+$x+y$
+---
+x + y

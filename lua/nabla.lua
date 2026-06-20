@@ -7,6 +7,8 @@ local utils=require"nabla.utils"
 
 local autogen_autocmd = {}
 local mode_autocmd = {}
+local cursor_autocmd = {}
+local _wide_vt_by_id = {}
 local autogen_flag = false
 
 local virt_enabled = {}
@@ -542,6 +544,9 @@ function enable_virt(opts)
     return w
   end
 
+  -- Track wide formula virt_text extmarks for CursorMoved hiding
+  _wide_vt_by_id = {}
+  local wide_virt_marks = {}
   for row, formulas in pairs(line_formulas) do
     table.sort(formulas, function(a, b) return a.scol < b.scol end)
 
@@ -553,6 +558,8 @@ function enable_virt(opts)
     -- Other rows: use baseline row of drawing
     local conceal_chars = {}
     local conceal_hls = {}
+    -- Track formulas that need virt_text (drawing wider than source)
+    local virt_text_formulas = {}
     for _, f in ipairs(formulas) do
       local is_multiline = f.erow and f.erow ~= row
       local conceal_dv
@@ -581,45 +588,75 @@ function enable_virt(opts)
           p = vim.str_byteindex(line_text, char_end)
         end
       end
-      -- Set conceal per character
-      for ci = char_start, char_end - 1 do
-        local a = vim.str_byteindex(line_text, ci)
-        local next_a = vim.str_byteindex(line_text, ci + 1)
-        local idx = ci - char_start + 1
-        local c = ""
-        local hl = nil
-        if conceal_dv and idx <= #conceal_dv then
-          c = conceal_dv[idx][1]
-          hl = conceal_dv[idx][2]
+      -- Check if drawing is wider than source: use virt_text instead of per-char conceal
+      if conceal_dv and #conceal_dv > (char_end - char_start) then
+        virt_text_formulas[f.scol] = { f = f, drawing = conceal_dv }
+        -- Conceal all formula chars to empty (virt_text handles display)
+        for ci = char_start, char_end - 1 do
+          local a = vim.str_byteindex(line_text, ci)
+          local next_a = vim.str_byteindex(line_text, ci + 1)
+          conceal_chars[a] = ""
+          conceal_hls[a] = nil
+          for b = a + 1, next_a - 1 do
+            conceal_chars[b] = ""
+            conceal_hls[b] = nil
+          end
         end
-        conceal_chars[a] = c
-        conceal_hls[a] = hl
-        -- Subsequent bytes of multi-char: empty (width 0)
-        for b = a + 1, next_a - 1 do
-          conceal_chars[b] = ""
-          conceal_hls[b] = nil
+      else
+        -- Normal per-char conceal
+        for ci = char_start, char_end - 1 do
+          local a = vim.str_byteindex(line_text, ci)
+          local next_a = vim.str_byteindex(line_text, ci + 1)
+          local idx = ci - char_start + 1
+          local c = ""
+          local hl = nil
+          if conceal_dv and idx <= #conceal_dv then
+            c = conceal_dv[idx][1]
+            hl = conceal_dv[idx][2]
+          end
+          conceal_chars[a] = c
+          conceal_hls[a] = hl
+          -- Subsequent bytes of multi-char: empty (width 0)
+          for b = a + 1, next_a - 1 do
+            conceal_chars[b] = ""
+            conceal_hls[b] = nil
+          end
         end
       end
     end
 
     -- Compute visible column at each byte position using strdisplaywidth
+    -- When a formula uses virt_text (drawing wider than source), the concealed
+    -- chars have 0 width but the virt_text drawing occupies its full width.
+    -- We add the drawing width at the formula start so subsequent chars are
+    -- positioned correctly.
     local vis_col_at = {}
     local col = 0
     local utf_len = vim.str_utfindex(line_text or "")
+    local formula_drawing_widths = {}
+    for scol, vtf in pairs(virt_text_formulas) do
+      local w = 0
+      for _, chunk in ipairs(vtf.drawing) do
+        w = w + vim.fn.strdisplaywidth(chunk[1])
+      end
+      formula_drawing_widths[scol] = w
+    end
     for ui = 0, utf_len - 1 do
       local a = vim.str_byteindex(line_text, ui)
       local next_a = vim.str_byteindex(line_text, ui + 1)
       if next_a == a then break end
 
-      local char_width
-      if conceal_chars[a] ~= nil then
-        char_width = vim.fn.strdisplaywidth(conceal_chars[a] or "")
+      -- If this byte is the start of a virt_text formula, add drawing width
+      if formula_drawing_widths[a] then
+        vis_col_at[a] = col
+        col = col + formula_drawing_widths[a]
+      elseif conceal_chars[a] ~= nil then
+        vis_col_at[a] = col
+        col = col + vim.fn.strdisplaywidth(conceal_chars[a] or "")
       else
-        char_width = vim.fn.strdisplaywidth(line_text:sub(a + 1, next_a))
+        vis_col_at[a] = col
+        col = col + vim.fn.strdisplaywidth(line_text:sub(a + 1, next_a))
       end
-
-      vis_col_at[a] = col
-      col = col + char_width
     end
     -- Build char_widths: per-character {col, width} for matched padding
     local char_widths = {}
@@ -629,14 +666,19 @@ function enable_virt(opts)
         local a = vim.str_byteindex(line_text, ui2)
         local na = vim.str_byteindex(line_text, ui2 + 1)
         if na == a then break end
-        local w
-        if conceal_chars[a] ~= nil then
-          w = vim.fn.strdisplaywidth(conceal_chars[a] or "")
+        if formula_drawing_widths[a] then
+          table.insert(char_widths, {col = c, width = formula_drawing_widths[a]})
+          c = c + formula_drawing_widths[a]
         else
-          w = vim.fn.strdisplaywidth(line_text:sub(a + 1, na))
+          local w
+          if conceal_chars[a] ~= nil then
+            w = vim.fn.strdisplaywidth(conceal_chars[a] or "")
+          else
+            w = vim.fn.strdisplaywidth(line_text:sub(a + 1, na))
+          end
+          table.insert(char_widths, {col = c, width = w})
+          c = c + w
         end
-        table.insert(char_widths, {col = c, width = w})
-        c = c + w
       end
     end
 
@@ -691,21 +733,55 @@ function enable_virt(opts)
         end
       end
       -- Set extmark per character (covers full multi-byte range)
-      for ci = char_start, char_end - 1 do
-        local a = vim.str_byteindex(line_text, ci)
-        local next_a = vim.str_byteindex(line_text, ci + 1)
-        local idx = ci - char_start + 1
-        local c, hl = "", nil
-        if conceal_dv and idx <= #conceal_dv then
-          c = conceal_dv[idx][1]
-          hl = conceal_dv[idx][2]
+      if virt_text_formulas[f.scol] then
+        -- Drawing wider than source: conceal all source chars to empty,
+        -- place virt_text. CursorMoved autocmd hides virt_text on cursor line.
+        local vt = virt_text_formulas[f.scol]
+        for ci = char_start, char_end - 1 do
+          local a = vim.str_byteindex(line_text, ci)
+          local next_a = vim.str_byteindex(line_text, ci + 1)
+          vim.api.nvim_buf_set_extmark(buf, ns, row, a, {
+            end_row = row, end_col = next_a,
+            conceal = "", strict = false,
+          })
         end
-        local mark_opts = {
-          end_row = row, end_col = next_a,
-          conceal = c, strict = false,
-        }
-        if hl and hl ~= "Normal" then mark_opts.hl_group = hl end
-        vim.api.nvim_buf_set_extmark(buf, ns, row, a, mark_opts)
+        -- Place virt_text overlay for the full drawing
+        local first_byte = vim.str_byteindex(line_text, char_start)
+        local last_byte = vim.str_byteindex(line_text, char_end)
+        local virt_chunks = {}
+        for _, chunk in ipairs(vt.drawing) do
+          table.insert(virt_chunks, { chunk[1], chunk[2] })
+        end
+        local mark_id = vim.api.nvim_buf_set_extmark(buf, ns, row, first_byte, {
+          end_row = row, end_col = last_byte,
+          virt_text = virt_chunks,
+          virt_text_pos = "inline",
+          strict = false,
+        })
+        _wide_vt_by_id[mark_id] = virt_chunks
+        if not wide_virt_marks[row] then wide_virt_marks[row] = {} end
+        table.insert(wide_virt_marks[row], {
+          id = mark_id, scol = first_byte, ecol = last_byte,
+          virt_chunks = virt_chunks,
+        })
+      else
+        -- Normal per-char conceal
+        for ci = char_start, char_end - 1 do
+          local a = vim.str_byteindex(line_text, ci)
+          local next_a = vim.str_byteindex(line_text, ci + 1)
+          local idx = ci - char_start + 1
+          local c, hl = "", nil
+          if conceal_dv and idx <= #conceal_dv then
+            c = conceal_dv[idx][1]
+            hl = conceal_dv[idx][2]
+          end
+          local mark_opts = {
+            end_row = row, end_col = next_a,
+            conceal = c, strict = false,
+          }
+          if hl and hl ~= "Normal" then mark_opts.hl_group = hl end
+          vim.api.nvim_buf_set_extmark(buf, ns, row, a, mark_opts)
+        end
       end
     end
 
@@ -811,53 +887,96 @@ function enable_virt(opts)
           p = vim.str_byteindex(line_text, char_end)
         end
       end
-      for ci = char_start, char_end - 1 do
-        local a = vim.str_byteindex(line_text, ci)
-        local next_a = vim.str_byteindex(line_text, ci + 1)
-        local idx = ci - char_start + 1
-        if conceal_dv and idx <= #conceal_dv then
-          baseline_conceal[a] = conceal_dv[idx][1]
-        else
-          baseline_conceal[a] = ""
+      if virt_text_formulas[f.scol] then
+        -- Drawing wider than source: same per-char mapping as extmarks
+        local vt = virt_text_formulas[f.scol]
+        for ci = char_start, char_end - 1 do
+          local a = vim.str_byteindex(line_text, ci)
+          local next_a = vim.str_byteindex(line_text, ci + 1)
+          local idx = ci - char_start + 1
+          if idx <= #vt.drawing then
+            baseline_conceal[a] = vt.drawing[idx][1]
+          else
+            baseline_conceal[a] = ""
+          end
+          for b = a + 1, next_a - 1 do
+            baseline_conceal[b] = ""
+          end
         end
-        for b = a + 1, next_a - 1 do
-          baseline_conceal[b] = ""
+      else
+        for ci = char_start, char_end - 1 do
+          local a = vim.str_byteindex(line_text, ci)
+          local next_a = vim.str_byteindex(line_text, ci + 1)
+          local idx = ci - char_start + 1
+          if conceal_dv and idx <= #conceal_dv then
+            baseline_conceal[a] = conceal_dv[idx][1]
+          else
+            baseline_conceal[a] = ""
+          end
+          for b = a + 1, next_a - 1 do
+            baseline_conceal[b] = ""
+          end
         end
       end
     end
-    local baseline_flat = {}
-    for c = 0, total_vis_col - 1 do
-      baseline_flat[c] = {" ", "Normal"}
-    end
+    -- Build baseline_vline using column-indexed positions (same grid as above/below)
+    -- with space-collapsing around concealed-to-empty regions
+    local baseline_vline = {}
     local utf_len2 = vim.str_utfindex(line_text)
+    -- Identify concealed-to-empty byte positions
+    local concealed_empty = {}
+    for ui = 0, utf_len2 - 1 do
+      local a = vim.str_byteindex(line_text, ui)
+      if baseline_conceal[a] == "" then
+        concealed_empty[a] = true
+      end
+    end
+    -- Build column-indexed baseline to match above/below vline grid
+    local baseline_grid = {}
+    local prev_byte = nil
     for ui = 0, utf_len2 - 1 do
       local a = vim.str_byteindex(line_text, ui)
       local next_a = vim.str_byteindex(line_text, ui + 1)
       if next_a == a then break end
       local vc = vis_col_at[a]
-      if vc == nil then goto continue_bl end
       local char_str
+      if vc == nil then goto continue_bl2 end
       if baseline_conceal[a] ~= nil then
         char_str = baseline_conceal[a]
       else
         char_str = line_text:sub(a + 1, next_a)
         if char_str == "$" then char_str = nil end
       end
+      -- Skip spaces immediately before concealed-to-empty regions
+      if char_str == " " and concealed_empty[next_a] then
+        goto continue_bl2
+      end
+      -- Skip spaces immediately after concealed-to-empty regions
+      if char_str == " " and prev_byte and concealed_empty[prev_byte] then
+        goto continue_bl2
+      end
       if char_str and char_str ~= "" then
-        baseline_flat[vc] = {char_str, "Normal"}
-        -- Wide chars occupy multiple vis_col positions; fill with empty
+        baseline_grid[vc] = {char_str, "Normal"}
+        -- Fill trailing columns of wide chars with zero-width placeholders
         local cw = vim.fn.strdisplaywidth(char_str)
         for i = 1, cw - 1 do
-          if vc + i < total_vis_col then
-            baseline_flat[vc + i] = {"", "Normal"}
-          end
+          baseline_grid[vc + i] = {"", "Normal"}
         end
       end
-      ::continue_bl::
+      ::continue_bl2::
+      prev_byte = a
     end
-    local baseline_vline = {}
-    for c = 0, total_vis_col - 1 do
-      table.insert(baseline_vline, baseline_flat[c])
+    -- Fill gaps and build baseline_vline array
+    local last_vc = 0
+    for k, _ in pairs(baseline_grid) do
+      if k > last_vc then last_vc = k end
+    end
+    for vc = 0, last_vc do
+      if baseline_grid[vc] then
+        table.insert(baseline_vline, baseline_grid[vc])
+      else
+        table.insert(baseline_vline, {" ", "Normal"})
+      end
     end
 
     -- Get screen width for splitting
@@ -1015,6 +1134,58 @@ function enable_virt(opts)
     end
   end
 
+  -- Store wide_vt map in global for test verification
+  _G._nabla_wide_vt_by_id = _wide_vt_by_id
+
+
+
+  -- Always clean up stale cursor autocmd from previous render
+  if cursor_autocmd[buf] then
+    vim.api.nvim_del_autocmd(cursor_autocmd[buf])
+    cursor_autocmd[buf] = nil
+  end
+
+  -- CursorMoved: hide virt_text on cursor line (so concealcursor shows raw formula),
+  -- restore virt_text when cursor moves away.
+  if next(wide_virt_marks) then
+    local prev_cursor_row = nil
+    local function update_cursor_marks()
+      local cursor_row = vim.api.nvim_win_get_cursor(0)[1] - 1
+      if cursor_row == prev_cursor_row then return end
+      -- Restore virt_text on previous cursor row (wide formulas)
+      if prev_cursor_row and wide_virt_marks[prev_cursor_row] then
+        for _, m in ipairs(wide_virt_marks[prev_cursor_row]) do
+          pcall(vim.api.nvim_buf_set_extmark, buf, ns, prev_cursor_row, m.scol, {
+            end_row = prev_cursor_row, end_col = m.ecol,
+            virt_text = m.virt_chunks,
+            virt_text_pos = "inline",
+            id = m.id,
+            strict = false,
+          })
+        end
+      end
+      -- Hide virt_text on current cursor row (wide formulas)
+      if wide_virt_marks[cursor_row] then
+        for _, m in ipairs(wide_virt_marks[cursor_row]) do
+          pcall(vim.api.nvim_buf_set_extmark, buf, ns, cursor_row, m.scol, {
+            end_row = cursor_row, end_col = m.ecol,
+            virt_text = {},
+            id = m.id,
+            strict = false,
+          })
+        end
+      end
+      prev_cursor_row = cursor_row
+    end
+    -- Run once to hide on initial cursor position
+    update_cursor_marks()
+    cursor_autocmd[buf] = vim.api.nvim_create_autocmd("CursorMoved", {
+      buffer = buf,
+      desc = "nabla.nvim: update conceal/virt on cursor move",
+      callback = update_cursor_marks,
+    })
+  end
+
   if opts and opts.autogen then
     autogen_autocmd[buf] = vim.api.nvim_create_autocmd({"InsertLeave", "TextChanged"}, {
       buffer = buf,
@@ -1055,6 +1226,10 @@ function disable_virt()
   if mode_autocmd[buf] then
     vim.api.nvim_del_autocmd(mode_autocmd[buf])
     mode_autocmd[buf] = nil
+  end
+  if cursor_autocmd[buf] then
+    vim.api.nvim_del_autocmd(cursor_autocmd[buf])
+    cursor_autocmd[buf] = nil
   end
 end
 

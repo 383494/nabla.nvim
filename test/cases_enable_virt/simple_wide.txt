@@ -1,0 +1,3 @@
+$a+b+c$
+---
+# virt_text: a + b + c
